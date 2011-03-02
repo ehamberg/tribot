@@ -1,0 +1,25 @@
+name:                  bibot
+category:              Network
+build-type:            Simple
+version:               0.1
+synopsis:              Stupid bigram-powered, nonsense-spewing irc bot
+description:           lol
+license:               BSD3
+License-file:          LICENSE
+category:              Network
+author:                Erlend Hamberg
+maintainer:            ehamberg@gmail.com
+stability:             experimental
+tested-with:           GHC==7.0.1
+cabal-version:         >=1.6
+
+Executable bibot
+    hs-source-dirs:    src
+    main-is:           bibot.hs
+    build-depends:     base >=4 && < 5, simpleirc >= 0.2 && < 0.3,
+                       bytestring >= 0.9 && < 1.0
+    ghc-options:       -Wall
+
+source-repository head
+  type:     git
+  location: git://github.com/ehamberg/bibot.git
