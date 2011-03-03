@@ -17,7 +17,7 @@ onMessage s m
         nick = B.pack (cNick conf)
 
 events :: [IrcEvent]
-events = [(Privmsg onMessage)]
+events = [Privmsg onMessage]
 
 conf :: IrcConfig
 conf = defaultConfig
@@ -28,5 +28,4 @@ conf = defaultConfig
   }
 
 main :: IO (Either IOError MIrc)
-main = do
-  connect conf False True
+main = connect conf False True
