@@ -4,6 +4,7 @@ import System.Random (getStdRandom, randomR)
 import Network.SimpleIRC
 import Data.Maybe
 import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.UTF8 as B8
 import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
 import Control.Monad (when, unless, liftM)
@@ -86,8 +87,8 @@ storeSentence db s = do
   mapM_ (\[w1,w2] -> addBigram db w1 w2) $ bigrams tokens
   DB.commit db
     where tokens   = filter (/= B.pack "") $ B.split ' ' s
-          firstW   = (DB.toSql . B.unpack . head) tokens -- first word
-          lastW    = (DB.toSql . B.unpack . last) tokens -- last word
+          firstW   = (DB.toSql . B8.toString . head) tokens -- first word
+          lastW    = (DB.toSql . B8.toString . last) tokens -- last word
           insert t = "INSERT OR IGNORE INTO " ++ t ++ " VALUES (?, 0)"
           update t = "UPDATE " ++ t ++ " set count = count+1 where word=?";
 
@@ -97,7 +98,7 @@ addBigram db word1 word2 = do
   DB.run db "INSERT OR IGNORE INTO bigram VALUES (?, ?, 0)" words'
   DB.run db "UPDATE bigram set count = count+1 where w1=? and w2=?" words'
   return ()
-    where bToSql = DB.toSql . B.unpack
+    where bToSql = DB.toSql . B8.toString
           words' = [bToSql word1, bToSql word2]
 
 onMessage :: DB.Connection -> EventFunc

@@ -18,7 +18,8 @@ Executable bibot
     main-is:           bibot.hs
     build-depends:     base >=4 && < 5, simpleirc >= 0.2 && < 0.3,
                        bytestring >= 0.9 && < 1.0, HDBC >= 2.2 && < 2.3,
-                       HDBC-sqlite3 >= 2.3 && < 2.4, random >= 1.0 && < 1.1
+                       HDBC-sqlite3 >= 2.3 && < 2.4, random >= 1.0 && < 1.1,
+                       utf8-string >= 0.3 && < 0.4
     ghc-options:       -Wall -O2 -fno-warn-unused-do-bind
 
 source-repository head
