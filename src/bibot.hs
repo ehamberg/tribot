@@ -1,15 +1,28 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 import System.Random (getStdRandom, randomR)
 import Network.SimpleIRC
 import Data.Maybe
 import qualified Data.ByteString.Char8 as B
 import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
-import Control.Monad (when, liftM)
+import Control.Monad (when, unless, liftM)
 import Data.List (find)
 
 botIrcName     = "bibot"
 botIrcServer   = "ipv6.chat.freenode.net"
 botIrcChannels = ["#bibot"]
+
+-- this function takes the message and the nick that sent it and returns true if
+-- the message should be ignored
+ignore :: B.ByteString -> B.ByteString -> Bool
+ignore msg nick = any (==True)
+                [ "http://" `B.isInfixOf` msg   -- ignore urls
+                , "https://" `B.isInfixOf` msg
+                , "@" `B.isPrefixOf` msg        -- ignore lambdabot commands
+                , ">" `B.isPrefixOf` msg
+                , nick == "lambdabot"           -- ignore lambdabot’s ramblings
+                ]
 
 bigrams :: [a] -> [[a]]
 bigrams [_] = []
@@ -91,11 +104,12 @@ onMessage :: DB.Connection -> EventFunc
 onMessage db s m
   -- if the bot’s nick is mentioned, generate a sentence
   | nick `B.isInfixOf` msg = mkRandSentence db >>= sendMsg s chan
-  -- if not, store the sentence
-  | otherwise = storeSentence db msg
+  -- if not, and if the message should not be ignored, store the sentence
+  | otherwise = unless (ignore msg from) $ storeSentence db msg
   where chan = fromJust $ mChan m
-        msg = mMsg m
+        msg  = mMsg m
         nick = B.pack botIrcName
+        from = fromMaybe "" (mNick m)
 
 -- set up the initial database tables
 mkTable :: DB.Connection -> IO ()
