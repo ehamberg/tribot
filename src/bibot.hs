@@ -1,22 +1,60 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+import System.Random
 import Network.SimpleIRC
 import Data.Maybe
 import qualified Data.ByteString.Char8 as B
 import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
-import Control.Monad (when)
+import Control.Monad (when, liftM)
 import Data.List (find)
 
 botIrcName     = "bibot"
 botIrcServer   = "ipv6.chat.freenode.net"
-botIrcChannels = ["#bitbot"]
+botIrcChannels = ["#bibot"]
 
 bigrams :: [a] -> [[a]]
 bigrams [x] = []
 bigrams xs  = take 2 xs : bigrams (tail xs)
 
-mkRandSentence = "foo"
+isEndWord :: DB.Connection -> B.ByteString -> IO Bool
+isEndWord db word = do
+  n <- liftM length $ DB.quickQuery' db
+                     "SELECT * FROM endword WHERE word=?"
+                     [DB.toSql word]
+  return (n==0)
+
+nextWords :: DB.Connection -> B.ByteString -> IO [B.ByteString]
+nextWords db word = do
+  candidates <- DB.quickQuery' db
+               "SELECT w2, count FROM bigram WHERE w1=? ORDER BY count"
+               [DB.toSql word]
+  if candidates == []
+     then return [word]
+     else do let freqs = map conv candidates
+             let freqSum = sum $ map snd freqs
+             rand <- getStdRandom (randomR (1,freqSum))
+             let next = pickElem freqs rand
+             end <- isEndWord db next
+             if end
+                then return [next]
+                else do xxx <- nextWords db next
+                        return (next:xxx)
+
+mkRandSentence db = do
+  startWords <- DB.quickQuery' db
+               "SELECT word, count FROM startword ORDER BY count"
+               []
+  let freqs = map conv startWords
+  let freqSum = sum $ map snd freqs
+  rand <- getStdRandom (randomR (1,freqSum))
+  let startW = pickElem freqs rand
+  s <- nextWords db startW
+  return $ B.intercalate " " s
+
+conv [a,b]    = (DB.fromSql a::B.ByteString, DB.fromSql b::Int)
+
+pickElem ((a,b):r) n = if b >= n then a else pickElem r (n-b)
 
 storeSentence :: DB.Connection -> B.ByteString -> IO ()
 storeSentence db s = do
@@ -40,10 +78,10 @@ addBigram db word1 word2 = do
     where bToSql = DB.toSql . B.unpack
           words = [bToSql word1, bToSql word2]
 
-onMessage :: EventFunc
-onMessage s m
-  | nick `B.isInfixOf` msg = sendMsg s chan msg
-  | otherwise = storeSentence undefined msg
+onMessage :: DB.Connection -> EventFunc
+onMessage db s m
+  | nick `B.isInfixOf` msg = mkRandSentence db >>= sendMsg s chan
+  | otherwise = storeSentence db msg
   where chan = fromJust $ mChan m
         msg = mMsg m
         nick = B.pack botIrcName
@@ -65,11 +103,11 @@ mkTable db = do
   DB.run db q3 []
   DB.commit db
 
-conf = defaultConfig
+conf db = defaultConfig
          { cAddr     = botIrcServer        -- Address
          , cNick     = botIrcName          -- Nickname
          , cChannels = botIrcChannels      -- Channels to join
-         , cEvents   = [Privmsg onMessage]
+         , cEvents   = [Privmsg (onMessage db)]
          }
 
 main :: IO ()
@@ -77,5 +115,5 @@ main = do
   db <- DB.connectSqlite3 "bigrams.db"
   tables <- DB.getTables db
   when ((isNothing . find (=="bigram")) tables) (mkTable db)
-  connect conf False True
+  connect (conf db) False True
   DB.disconnect db
