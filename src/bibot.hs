@@ -50,11 +50,11 @@ onMessage s m
 
 mkTable :: DB.Connection -> IO ()
 mkTable db = do
-  let q1 = "CREATE TABLE bigram(w1 VARCHAR(64), w2 VARCHAR(64), count INTEGER, "
+  let q1 = "CREATE TABLE bigram(w1 TEXT, w2 TEXT, count INTEGER, "
          ++ "PRIMARY KEY (w1,w2))"
-  let q2 = "CREATE TABLE startword(word VARCHAR(64), count INTEGER, "
+  let q2 = "CREATE TABLE startword(word TEXT, count INTEGER, "
          ++ "PRIMARY KEY (word))"
-  let q3 = "CREATE TABLE endword(word VARCHAR(64), count INTEGER, "
+  let q3 = "CREATE TABLE endword(word TEXT, count INTEGER, "
          ++ "PRIMARY KEY (word))"
   putStrLn "creating database tables:"
   putStrLn "\tcreating table \"bigram\"..."
