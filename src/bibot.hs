@@ -75,7 +75,7 @@ mkRandSentence db = do
   rand <- getStdRandom (randomR (1,freqSum))
   let startW = pickElem freqs rand
   s <- nextWords db startW
-  return $ B.intercalate (B.pack " ") s
+  return $ B.intercalate (B.pack " ") $ startW : s
 
 -- convert database rows to (bytestring, int) tuples
 conv :: [DB.SqlValue] -> (B.ByteString, Int)
