@@ -17,7 +17,8 @@ Executable bibot
     hs-source-dirs:    src
     main-is:           bibot.hs
     build-depends:     base >=4 && < 5, simpleirc >= 0.2 && < 0.3,
-                       bytestring >= 0.9 && < 1.0
+                       bytestring >= 0.9 && < 1.0, HDBC >= 2.2 && < 2.3,
+                       HDBC-sqlite3 >= 2.3 && < 2.4, random >= 1.0 && < 1.1
     ghc-options:       -Wall
 
 source-repository head
