@@ -59,7 +59,10 @@ nextWords db word = do
              let next = pickElem freqs rand
              end <- isEndWord db next
              hasN <- hasNext db next
-             if end && (not hasN)
+             rand <- getStdRandom (randomR (1,3)) :: IO Int
+             -- if there is no next word, or we are at an end word and rand is
+             -- 3, stop here.
+             if (not hasN) || (end && rand == 3)
                 then return [next]
                 else do xxx <- nextWords db next
                         return (next:xxx)
