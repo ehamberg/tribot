@@ -7,7 +7,7 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.UTF8 as B8
 import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
-import Control.Monad (when, unless, liftM)
+import Control.Monad (when, liftM)
 import Data.List (find)
 
 botIrcName     = "bibot"
@@ -29,12 +29,21 @@ bigrams :: [a] -> [[a]]
 bigrams [_] = []
 bigrams xs  = take 2 xs : bigrams (tail xs)
 
+-- returns true if the given word is an end word
 isEndWord :: DB.Connection -> B.ByteString -> IO Bool
 isEndWord db word = do
   n <- liftM length $ DB.quickQuery' db
                      "SELECT * FROM endword WHERE word=?"
                      [DB.toSql word]
-  return (n==0)
+  return (n/=0)
+
+-- returns true if the given word has a next word in our bigram model
+hasNext :: DB.Connection -> B.ByteString -> IO Bool
+hasNext db word = do
+  n <- liftM length $ DB.quickQuery' db
+                     "SELECT * FROM bigram WHERE w1=?"
+                     [DB.toSql word]
+  return (n/=0)
 
 -- for a given word, returns words following it until an end word is found
 nextWords :: DB.Connection -> B.ByteString -> IO [B.ByteString]
@@ -49,7 +58,8 @@ nextWords db word = do
              rand <- getStdRandom (randomR (1,freqSum))
              let next = pickElem freqs rand
              end <- isEndWord db next
-             if end
+             hasN <- hasNext db next
+             if end && (not hasN)
                 then return [next]
                 else do xxx <- nextWords db next
                         return (next:xxx)
