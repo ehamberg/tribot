@@ -24,6 +24,7 @@ isEndWord db word = do
                      [DB.toSql word]
   return (n==0)
 
+-- for a given word, returns words following it until an end word is found
 nextWords :: DB.Connection -> B.ByteString -> IO [B.ByteString]
 nextWords db word = do
   candidates <- DB.quickQuery' db
@@ -41,6 +42,8 @@ nextWords db word = do
                 else do xxx <- nextWords db next
                         return (next:xxx)
 
+-- makes a random sentence by finding a random start word and calling nextWords
+mkRandSentence :: DB.Connection -> IO B.ByteString
 mkRandSentence db = do
   startWords <- DB.quickQuery' db
                "SELECT word, count FROM startword ORDER BY count"
@@ -52,10 +55,16 @@ mkRandSentence db = do
   s <- nextWords db startW
   return $ B.intercalate " " s
 
-conv [a,b]    = (DB.fromSql a::B.ByteString, DB.fromSql b::Int)
+-- convert database rows to (bytestring, int) tuples
+conv [a,b] = (DB.fromSql a::B.ByteString, DB.fromSql b::Int)
 
+-- pick an element from the list of (elem, count) tuples. will return the
+-- element for which the accumulated count is less than or equal to n
+pickElem :: (Ord b, Num b) => [(a, b)] -> b -> a
 pickElem ((a,b):r) n = if b >= n then a else pickElem r (n-b)
 
+-- stores a sentence in the given database. the bigrams are put in the “bigram”
+-- table and the first and last word in “startword“ and “endword”, respectively.
 storeSentence :: DB.Connection -> B.ByteString -> IO ()
 storeSentence db s = do
   DB.run db (insert "startword") [firstW]
@@ -70,6 +79,7 @@ storeSentence db s = do
           insert t = "INSERT OR IGNORE INTO " ++ t ++ " VALUES (?, 0)"
           update t = "UPDATE " ++ t ++ " set count = count+1 where word=?";
 
+-- adds a bigram to the database
 addBigram :: DB.Connection -> B.ByteString -> B.ByteString -> IO ()
 addBigram db word1 word2 = do
   DB.run db "INSERT OR IGNORE INTO bigram VALUES (?, ?, 0)" words
@@ -80,12 +90,15 @@ addBigram db word1 word2 = do
 
 onMessage :: DB.Connection -> EventFunc
 onMessage db s m
+  -- if the bot’s nick is mentioned, generate a sentence
   | nick `B.isInfixOf` msg = mkRandSentence db >>= sendMsg s chan
+  -- if not, store the sentence
   | otherwise = storeSentence db msg
   where chan = fromJust $ mChan m
         msg = mMsg m
         nick = B.pack botIrcName
 
+-- set up the initial database tables
 mkTable :: DB.Connection -> IO ()
 mkTable db = do
   let q1 = "CREATE TABLE bigram(w1 TEXT, w2 TEXT, count INTEGER, "
