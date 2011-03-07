@@ -1,6 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
-
-import System.Random
+import System.Random (getStdRandom, randomR)
 import Network.SimpleIRC
 import Data.Maybe
 import qualified Data.ByteString.Char8 as B
@@ -14,7 +12,7 @@ botIrcServer   = "ipv6.chat.freenode.net"
 botIrcChannels = ["#bibot"]
 
 bigrams :: [a] -> [[a]]
-bigrams [x] = []
+bigrams [_] = []
 bigrams xs  = take 2 xs : bigrams (tail xs)
 
 isEndWord :: DB.Connection -> B.ByteString -> IO Bool
@@ -53,9 +51,10 @@ mkRandSentence db = do
   rand <- getStdRandom (randomR (1,freqSum))
   let startW = pickElem freqs rand
   s <- nextWords db startW
-  return $ B.intercalate " " s
+  return $ B.intercalate (B.pack " ") s
 
 -- convert database rows to (bytestring, int) tuples
+conv :: [DB.SqlValue] -> (B.ByteString, Int)
 conv [a,b] = (DB.fromSql a::B.ByteString, DB.fromSql b::Int)
 
 -- pick an element from the list of (elem, count) tuples. will return the
@@ -73,7 +72,7 @@ storeSentence db s = do
   DB.run db (update "endword") [lastW]
   mapM_ (\[w1,w2] -> addBigram db w1 w2) $ bigrams tokens
   DB.commit db
-    where tokens   = filter (/="") $ B.split ' ' s
+    where tokens   = filter (/= B.pack "") $ B.split ' ' s
           firstW   = (DB.toSql . B.unpack . head) tokens -- first word
           lastW    = (DB.toSql . B.unpack . last) tokens -- last word
           insert t = "INSERT OR IGNORE INTO " ++ t ++ " VALUES (?, 0)"
@@ -82,11 +81,11 @@ storeSentence db s = do
 -- adds a bigram to the database
 addBigram :: DB.Connection -> B.ByteString -> B.ByteString -> IO ()
 addBigram db word1 word2 = do
-  DB.run db "INSERT OR IGNORE INTO bigram VALUES (?, ?, 0)" words
-  DB.run db "UPDATE bigram set count = count+1 where w1=? and w2=?" words
+  DB.run db "INSERT OR IGNORE INTO bigram VALUES (?, ?, 0)" words'
+  DB.run db "UPDATE bigram set count = count+1 where w1=? and w2=?" words'
   return ()
     where bToSql = DB.toSql . B.unpack
-          words = [bToSql word1, bToSql word2]
+          words' = [bToSql word1, bToSql word2]
 
 onMessage :: DB.Connection -> EventFunc
 onMessage db s m
@@ -116,6 +115,7 @@ mkTable db = do
   DB.run db q3 []
   DB.commit db
 
+conf :: DB.Connection -> IrcConfig
 conf db = defaultConfig
          { cAddr     = botIrcServer        -- Address
          , cNick     = botIrcName          -- Nickname
