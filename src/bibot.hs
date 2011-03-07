@@ -97,7 +97,7 @@ addBigram :: DB.Connection -> B.ByteString -> B.ByteString -> IO ()
 addBigram db word1 word2 = do
   DB.run db "INSERT OR IGNORE INTO bigram VALUES (?, ?, 0)" words'
   DB.run db "UPDATE bigram set count = count+1 where w1=? and w2=?" words'
-  return ()
+  DB.commit db
     where bToSql = DB.toSql . B8.toString
           words' = [bToSql word1, bToSql word2]
 
