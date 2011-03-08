@@ -9,6 +9,7 @@ import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
 import Control.Monad (when, liftM)
 import Data.List (find)
+import Data.Char (isSpace)
 
 botIrcName     = "bibot"
 botIrcServer   = "ipv6.chat.freenode.net"
@@ -99,7 +100,7 @@ storeSentence db s = do
   DB.run db (update "endword") [lastW]
   mapM_ (\[w1,w2] -> addBigram db w1 w2) $ bigrams tokens
   DB.commit db
-    where tokens   = filter (/= B.pack "") $ B.split ' ' s
+    where tokens   = filter (/= B.pack "") $ B.splitWith isSpace s
           firstW   = (DB.toSql . B8.toString . head) tokens -- first word
           lastW    = (DB.toSql . B8.toString . last) tokens -- last word
           insert t = "INSERT OR IGNORE INTO " ++ t ++ " VALUES (?, 0)"
