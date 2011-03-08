@@ -58,8 +58,8 @@ nextWords db word = do
              let freqSum = sum $ map snd freqs
              rand <- getStdRandom (randomR (1,freqSum))
              let next = pickElem freqs rand
-             end <- isEndWord db next
-             hasN <- hasNext db next
+             end <- isEndWord db word
+             hasN <- hasNext db word
              rand <- getStdRandom (randomR (1,3)) :: IO Int
              -- if there is no next word, or we are at an end word and rand is
              -- 3, stop here.
