@@ -117,11 +117,11 @@ addBigram db word1 word2 = do
 
 onMessage :: DB.Connection -> EventFunc
 onMessage db s m
-  -- message should be ignored
+  -- if message should be ignored, do nothing
   | ignore msg from = return ()
   -- if the bot’s nick is mentioned, generate a sentence
   | nick `B.isInfixOf` msg = mkRandSentence db >>= sendMsg s chan
-  -- if not, and if the message should not be ignored, store the sentence
+  -- if not, store the sentence
   | otherwise = storeSentence db msg
     where chan = fromJust $ mChan m
           msg  = mMsg m
