@@ -112,13 +112,15 @@ addBigram db word1 word2 = do
   DB.run db "INSERT OR IGNORE INTO bigram VALUES (?, ?, 0)" words'
   DB.run db "UPDATE bigram set count = count+1 where w1=? and w2=?" words'
   DB.commit db
-    where bToSql = DB.toSql . B8.toString
+    where bToSql = DB.toSql . toString
           words' = [bToSql word1, bToSql word2]
 
 onMessage :: DB.Connection -> EventFunc
 onMessage db s m
   -- if message should be ignored, do nothing
   | ignore msg from = return ()
+  -- ignore private queries
+  | chan == nick = sendMsg s from $ B8.fromString "♫ Lalala. I'm ignoring you. ♬"
   -- if the bot’s nick is mentioned, generate a sentence
   | nick `B.isInfixOf` msg = mkRandSentence db >>= sendMsg s chan
   -- if not, store the sentence
