@@ -4,7 +4,7 @@ import System.Random (getStdRandom, randomR)
 import Network.SimpleIRC
 import Data.Maybe
 import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.UTF8 as B8
+import Data.ByteString.UTF8 (fromString, toString)
 import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
 import Control.Monad (when, liftM)
@@ -101,8 +101,8 @@ storeSentence db s = do
   mapM_ (\[w1,w2] -> addBigram db w1 w2) $ bigrams tokens
   DB.commit db
     where tokens   = filter (/= B.pack "") $ B.splitWith isSpace s
-          firstW   = (DB.toSql . B8.toString . head) tokens -- first word
-          lastW    = (DB.toSql . B8.toString . last) tokens -- last word
+          firstW   = (DB.toSql . toString . head) tokens -- first word
+          lastW    = (DB.toSql . toString . last) tokens -- last word
           insert t = "INSERT OR IGNORE INTO " ++ t ++ " VALUES (?, 0)"
           update t = "UPDATE " ++ t ++ " set count = count+1 where word=?";
 
@@ -120,7 +120,7 @@ onMessage db s m
   -- if message should be ignored, do nothing
   | ignore msg from = return ()
   -- ignore private queries
-  | chan == nick = sendMsg s from $ B8.fromString "♫ Lalala. I'm ignoring you. ♬"
+  | chan == nick = sendMsg s from $ fromString "♫ Lalala. I'm ignoring you. ♬"
   -- if the bot’s nick is mentioned, generate a sentence
   | nick `B.isInfixOf` msg = mkRandSentence db >>= sendMsg s chan
   -- if not, store the sentence
