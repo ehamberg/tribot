@@ -53,7 +53,7 @@ nextWords db word = do
                "SELECT w2, count FROM bigram WHERE w1=? ORDER BY count"
                [DB.toSql word]
   if candidates == []
-     then return [word]
+     then return []
      else do let freqs = map conv candidates
              let freqSum = sum $ map snd freqs
              rand <- getStdRandom (randomR (1,freqSum))
@@ -63,8 +63,8 @@ nextWords db word = do
              rand <- getStdRandom (randomR (1,3)) :: IO Int
              -- if there is no next word, or we are at an end word and rand is
              -- 3, stop here.
-             if (not hasN) || (end && rand == 3)
-                then return [next]
+             if not hasN || (end && rand == 3)
+                then return []
                 else do xxx <- nextWords db next
                         return (next:xxx)
 
