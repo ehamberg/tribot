@@ -67,7 +67,8 @@ nextWords db word = do
 
              -- if there is no next word, stop. also, if this is an end word,
              -- stop with a ~20% possibility even if there are more words
-             if not hasN || loop || (end && rand `mod` 5 == 0)
+             stop <- liftM (==1) $ getStdRandom (randomR (1,5::Int))
+             if not hasN || loop || (end && stop)
                 then return []
                 else do xxx <- nextWords db next
                         return (next:xxx)
