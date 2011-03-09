@@ -60,9 +60,14 @@ nextWords db word = do
              let next = pickElem freqs rand
              end <- isEndWord db word
              hasN <- hasNext db word
+
+             -- if we only have one candidate which is the same as the current
+             -- word we need to stop now lest we loop forever
+             let loop = length candidates == 1 && next == word
+
              -- if there is no next word, stop. also, if this is an end word,
-             -- stop with a ~33% possibility.
-             if not hasN || (end && rand `mod` 3 == 0)
+             -- stop with a ~33% possibility even if there are more words
+             if not hasN || loop || (end && rand `mod` 3 == 0)
                 then return []
                 else do xxx <- nextWords db next
                         return (next:xxx)
