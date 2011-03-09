@@ -66,8 +66,8 @@ nextWords db word = do
              let loop = length candidates == 1 && next == word
 
              -- if there is no next word, stop. also, if this is an end word,
-             -- stop with a ~33% possibility even if there are more words
-             if not hasN || loop || (end && rand `mod` 3 == 0)
+             -- stop with a ~20% possibility even if there are more words
+             if not hasN || loop || (end && rand `mod` 5 == 0)
                 then return []
                 else do xxx <- nextWords db next
                         return (next:xxx)
