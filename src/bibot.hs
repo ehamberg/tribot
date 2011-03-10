@@ -10,6 +10,7 @@ import qualified Database.HDBC.Sqlite3 as DB
 import Control.Monad (when, liftM)
 import Data.List (find)
 import Data.Char (isSpace)
+import Data.String hiding (fromString)
 
 botIrcName     = "bibot"
 botIrcServer   = "ipv6.chat.freenode.net"
@@ -26,15 +27,17 @@ ignore msg nick = any (==True)
                 , nick == "lambdabot"           -- ignore lambdabot’s ramblings
                 ]
 
-bigrams :: [a] -> [[a]]
-bigrams [_] = []
-bigrams xs  = take 2 xs : bigrams (tail xs)
+bigrams :: (IsString a) => [a] -> [[a]]
+bigrams [] = []
+bigrams xs = bigrams' (["<s>"] ++ xs ++ ["<e>"])
+  where bigrams' [_] = []
+        bigrams' xs  = take 2 xs : bigrams' (tail xs)
 
 -- returns true if the given word is an end word
 isEndWord :: DB.Connection -> B.ByteString -> IO Bool
 isEndWord db word = do
   n <- liftM length $ DB.quickQuery' db
-                     "SELECT * FROM endword WHERE word=?"
+                     "SELECT * FROM bigrams WHERE w1=? AND w2='<e>'"
                      [DB.toSql word]
   return (n/=0)
 
@@ -77,7 +80,7 @@ nextWords db word = do
 mkRandSentence :: DB.Connection -> IO B.ByteString
 mkRandSentence db = do
   startWords <- DB.quickQuery' db
-               "SELECT word, count FROM startword ORDER BY count"
+               "SELECT w2, count FROM bigrams WHERE w1='<s>' ORDER BY count"
                []
   let freqs = map conv startWords
   let freqSum = sum $ map snd freqs
@@ -99,17 +102,9 @@ pickElem ((a,b):r) n = if b >= n then a else pickElem r (n-b)
 -- table and the first and last word in “startword“ and “endword”, respectively.
 storeSentence :: DB.Connection -> B.ByteString -> IO ()
 storeSentence db s = do
-  DB.run db (insert "startword") [firstW]
-  DB.run db (update "startword") [firstW]
-  DB.run db (insert "endword") [lastW]
-  DB.run db (update "endword") [lastW]
   mapM_ (\[w1,w2] -> addBigram db w1 w2) $ bigrams tokens
   DB.commit db
-    where tokens   = filter (/= B.pack "") $ B.splitWith isSpace s
-          firstW   = (DB.toSql . toString . head) tokens -- first word
-          lastW    = (DB.toSql . toString . last) tokens -- last word
-          insert t = "INSERT OR IGNORE INTO " ++ t ++ " VALUES (?, 0)"
-          update t = "UPDATE " ++ t ++ " set count = count+1 where word=?";
+    where tokens = filter (`notElem` ["", "<s>", "<e>"]) $ B.splitWith isSpace s
 
 -- adds a bigram to the database
 addBigram :: DB.Connection -> B.ByteString -> B.ByteString -> IO ()
@@ -140,18 +135,9 @@ mkTable :: DB.Connection -> IO ()
 mkTable db = do
   let q1 = "CREATE TABLE bigram(w1 TEXT, w2 TEXT, count INTEGER, "
          ++ "PRIMARY KEY (w1,w2))"
-  let q2 = "CREATE TABLE startword(word TEXT, count INTEGER, "
-         ++ "PRIMARY KEY (word))"
-  let q3 = "CREATE TABLE endword(word TEXT, count INTEGER, "
-         ++ "PRIMARY KEY (word))"
-  putStrLn "creating database tables:"
-  putStrLn "\tcreating table \"bigram\"..."
-  DB.run db q1 []
-  putStrLn "\tcreating table \"startword\"..."
-  DB.run db q2 []
-  putStrLn "\tcreating table \"endword\"..."
-  DB.run db q3 []
-  DB.commit db
+  putStrLn "Creating database table \"bigram\"..."
+  DB.run db q1 [] -- FIXME: check return value
+  return ()
 
 conf :: DB.Connection -> IrcConfig
 conf db = defaultConfig
