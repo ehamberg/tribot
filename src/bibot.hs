@@ -51,29 +51,6 @@ hasNext db words = do
                      (map DB.toSql words)
   return (n/=0)
 
----- for two given words, returns words following them until an end word is found
---nextWords :: DB.Connection -> B.ByteString -> B.ByteString -> IO [B.ByteString]
---nextWords db w1 w2 = do
---  candidates <- DB.quickQuery' db
---               "SELECT w3,count FROM trigram WHERE w1=? AND w2=? ORDER BY count"
---               [DB.toSql w1, DB.toSql w2]
---  if candidates == []
---     then return []
---     else do let freqs = map conv candidates
---             let freqSum = sum $ map snd freqs
---             rand <- getStdRandom (randomR (1,freqSum))
---             let next = pickElem freqs rand
---             end <- areEndWords db w1 w2
---             hasN <- hasNext db w1 w2
---
---             -- if there is no next word, stop. also, if this is an end word,
---             -- stop with a ~20% possibility even if there are more words
---             stop <- liftM (==1) $ getStdRandom (randomR (1,5::Int))
---             if not hasN || (end && stop)
---                then return []
---                else do xxx <- nextWords db next next -- FIXME
---                        return (next:xxx)
-
 pick :: [(B.ByteString, Int)] -> IO B.ByteString
 pick words = do
   let freqSum = sum $ map snd words
