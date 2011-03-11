@@ -7,7 +7,7 @@ import qualified Data.ByteString.Char8 as B
 import Data.ByteString.UTF8 (fromString, toString)
 import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
-import Control.Monad (when, liftM)
+import Control.Monad.State
 import Data.List (find)
 import Data.Char (isSpace)
 import Data.String hiding (fromString)
@@ -27,67 +27,95 @@ ignore msg nick = any (==True)
                 , nick == "lambdabot"           -- ignore lambdabot’s ramblings
                 ]
 
-bigrams :: (IsString a) => [a] -> [[a]]
-bigrams [] = []
-bigrams xs = bigrams' (["<s>"] ++ xs ++ ["<e>"])
-  where bigrams' [_] = []
-        bigrams' xs  = take 2 xs : bigrams' (tail xs)
+trigrams :: (IsString a) => [a] -> [[a]]
+trigrams [_] = []
+trigrams xs = trigrams' (["<s>"] ++ xs ++ ["<e>"])
+  where trigrams' xs
+          | length xs < 3 = []
+          | otherwise     = take 3 xs : trigrams' (tail xs)
 
--- returns true if the given word is an end word
-isEndWord :: DB.Connection -> B.ByteString -> IO Bool
-isEndWord db word = do
+-- returns true if the given two words have been observed at the end of an
+-- utterance
+areEndWords :: DB.Connection -> [B.ByteString] -> IO Bool
+areEndWords db words = do
   n <- liftM length $ DB.quickQuery' db
-                     "SELECT * FROM bigrams WHERE w1=? AND w2='<e>'"
-                     [DB.toSql word]
+                     "SELECT * FROM trigram WHERE w1=? AND w2=? AND w3='<e>'"
+                     (map DB.toSql words)
   return (n/=0)
 
--- returns true if the given word has a next word in our bigram model
-hasNext :: DB.Connection -> B.ByteString -> IO Bool
-hasNext db word = do
+-- returns true if the given two words have a next word in our trigram model
+hasNext :: DB.Connection -> [B.ByteString] -> IO Bool
+hasNext db words = do
   n <- liftM length $ DB.quickQuery' db
-                     "SELECT * FROM bigram WHERE w1=?"
-                     [DB.toSql word]
+                     "SELECT * FROM trigram WHERE w1=? AND w2=? AND w3<>'<e>'"
+                     (map DB.toSql words)
   return (n/=0)
 
--- for a given word, returns words following it until an end word is found
-nextWords :: DB.Connection -> B.ByteString -> IO [B.ByteString]
-nextWords db word = do
+---- for two given words, returns words following them until an end word is found
+--nextWords :: DB.Connection -> B.ByteString -> B.ByteString -> IO [B.ByteString]
+--nextWords db w1 w2 = do
+--  candidates <- DB.quickQuery' db
+--               "SELECT w3,count FROM trigram WHERE w1=? AND w2=? ORDER BY count"
+--               [DB.toSql w1, DB.toSql w2]
+--  if candidates == []
+--     then return []
+--     else do let freqs = map conv candidates
+--             let freqSum = sum $ map snd freqs
+--             rand <- getStdRandom (randomR (1,freqSum))
+--             let next = pickElem freqs rand
+--             end <- areEndWords db w1 w2
+--             hasN <- hasNext db w1 w2
+--
+--             -- if there is no next word, stop. also, if this is an end word,
+--             -- stop with a ~20% possibility even if there are more words
+--             stop <- liftM (==1) $ getStdRandom (randomR (1,5::Int))
+--             if not hasN || (end && stop)
+--                then return []
+--                else do xxx <- nextWords db next next -- FIXME
+--                        return (next:xxx)
+
+pick :: [(B.ByteString, Int)] -> IO B.ByteString
+pick words = do
+  let freqSum = sum $ map snd words
+  rand <- getStdRandom (randomR (1,freqSum))
+  return $ pickElem words rand
+
+getStartWord :: DB.Connection -> IO B.ByteString
+getStartWord db = do
   candidates <- DB.quickQuery' db
-               "SELECT w2, count FROM bigram WHERE w1=? ORDER BY count"
-               [DB.toSql word]
-  if candidates == []
-     then return []
-     else do let freqs = map conv candidates
-             let freqSum = sum $ map snd freqs
-             rand <- getStdRandom (randomR (1,freqSum))
-             let next = pickElem freqs rand
-             end <- isEndWord db word
-             hasN <- hasNext db word
+               "SELECT w2,count FROM trigram WHERE w1='<s>'"
+               []
+  pick (map conv candidates)
 
-             -- if we only have one candidate which is the same as the current
-             -- word we need to stop now lest we loop forever
-             let loop = length candidates == 1 && next == word
-
-             -- if there is no next word, stop. also, if this is an end word,
-             -- stop with a ~20% possibility even if there are more words
-             stop <- liftM (==1) $ getStdRandom (randomR (1,5::Int))
-             if not hasN || loop || (end && stop)
-                then return []
-                else do xxx <- nextWords db next
-                        return (next:xxx)
 
 -- makes a random sentence by finding a random start word and calling nextWords
-mkRandSentence :: DB.Connection -> IO B.ByteString
-mkRandSentence db = do
-  startWords <- DB.quickQuery' db
-               "SELECT w2, count FROM bigrams WHERE w1='<s>' ORDER BY count"
-               []
-  let freqs = map conv startWords
-  let freqSum = sum $ map snd freqs
-  rand <- getStdRandom (randomR (1,freqSum))
-  let startW = pickElem freqs rand
-  s <- nextWords db startW
-  return $ B.intercalate " " $ startW : s
+randSentence :: DB.Connection -> StateT [B.ByteString] IO B.ByteString
+randSentence db = do
+  current <- get
+  let n = length current
+
+  -- if empty, find a start word
+  when (null current) $ liftIO (getStartWord db) >>= \s -> put ["<s>",s]
+
+  current' <- get -- FIXME
+  let lastTwo = drop (n-2) current'
+
+  liftIO $ print lastTwo
+
+  candidates <- liftIO $ DB.quickQuery' db
+               "SELECT w3,count FROM trigram WHERE w1=? AND w2=? ORDER BY count"
+               (map DB.toSql lastTwo)
+
+  if null candidates
+     then fmap (B.intercalate " " . tail) get
+     else do end <- liftIO $ areEndWords db lastTwo
+             hasN <-liftIO $  hasNext db lastTwo
+
+             if not hasN
+                then fmap (B.intercalate " " . tail) get
+                else do next <- liftIO $ pick (map conv candidates)
+                        modify (++[next])
+                        randSentence db
 
 -- convert database rows to (bytestring, int) tuples
 conv :: [DB.SqlValue] -> (B.ByteString, Int)
@@ -98,22 +126,21 @@ conv [a,b] = (DB.fromSql a::B.ByteString, DB.fromSql b::Int)
 pickElem :: (Ord b, Num b) => [(a, b)] -> b -> a
 pickElem ((a,b):r) n = if b >= n then a else pickElem r (n-b)
 
--- stores a sentence in the given database. the bigrams are put in the “bigram”
+-- stores a sentence in the given database. the trigrams are put in the “trigram”
 -- table and the first and last word in “startword“ and “endword”, respectively.
 storeSentence :: DB.Connection -> B.ByteString -> IO ()
 storeSentence db s = do
-  mapM_ (\[w1,w2] -> addBigram db w1 w2) $ bigrams tokens
+  mapM_ (\[w1,w2,w3] -> addTrigram db w1 w2 w3) $ trigrams tokens
   DB.commit db
     where tokens = filter (`notElem` ["", "<s>", "<e>"]) $ B.splitWith isSpace s
 
--- adds a bigram to the database
-addBigram :: DB.Connection -> B.ByteString -> B.ByteString -> IO ()
-addBigram db word1 word2 = do
-  DB.run db "INSERT OR IGNORE INTO bigram VALUES (?, ?, 0)" words'
-  DB.run db "UPDATE bigram set count = count+1 where w1=? and w2=?" words'
+-- adds a trigram to the database
+addTrigram :: DB.Connection -> B.ByteString -> B.ByteString -> B.ByteString -> IO ()
+addTrigram db w1 w2 w3 = do
+  DB.run db "INSERT OR IGNORE INTO trigram VALUES (?, ?, ?, 0)" words'
+  DB.run db "UPDATE trigram set count = count+1 where w1=? AND w2=? AND w3=?" words'
   DB.commit db
-    where bToSql = DB.toSql . toString
-          words' = [bToSql word1, bToSql word2]
+    where words' = map (DB.toSql . toString) [w1, w2, w3]
 
 onMessage :: DB.Connection -> EventFunc
 onMessage db s m
@@ -122,7 +149,7 @@ onMessage db s m
   -- ignore private queries
   | chan == nick = sendMsg s from $ fromString "♫ Lalala. I'm ignoring you. ♬"
   -- if the bot’s nick is mentioned, generate a sentence
-  | nick `B.isInfixOf` msg = mkRandSentence db >>= sendMsg s chan
+  | nick `B.isInfixOf` msg = evalStateT (randSentence db) [] >>= sendMsg s chan
   -- if not, store the sentence
   | otherwise = storeSentence db msg
     where chan = fromJust $ mChan m
@@ -133,10 +160,12 @@ onMessage db s m
 -- set up the initial database tables
 mkTable :: DB.Connection -> IO ()
 mkTable db = do
-  let q1 = "CREATE TABLE bigram(w1 TEXT, w2 TEXT, count INTEGER, "
-         ++ "PRIMARY KEY (w1,w2))"
-  putStrLn "Creating database table \"bigram\"..."
-  DB.run db q1 [] -- FIXME: check return value
+  let q1 = "CREATE TABLE trigram(w1 TEXT, w2 TEXT, w3 TEXT, count INTEGER, "
+         ++ "PRIMARY KEY (w1,w2,w3))"
+  putStrLn "Creating database table \"trigram\"..."
+  DB.run db q1 []
+  DB.run db "INSERT INTO trigram VALUES('<s>','hi!','<e>', 1)" []
+  DB.commit db
   return ()
 
 conf :: DB.Connection -> IrcConfig
@@ -152,8 +181,8 @@ conf db = defaultConfig
 
 main :: IO ()
 main = do
-  db <- DB.connectSqlite3 "bigrams.db"
+  db <- DB.connectSqlite3 "trigrams.db"
   tables <- DB.getTables db
-  when ((isNothing . find (=="bigram")) tables) (mkTable db)
+  when ((isNothing . find (=="trigram")) tables) (mkTable db)
   connect (conf db) False True
   DB.disconnect db
