@@ -80,8 +80,8 @@ randSentence db = do
   liftIO $ print lastTwo
 
   candidates <- liftIO $ DB.quickQuery' db
-               "SELECT w3,count FROM trigram WHERE w1=? AND w2=? ORDER BY count"
-               (map DB.toSql lastTwo)
+    "SELECT w3,count FROM trigram WHERE w1=? AND w2=? AND w3<>'<e>' ORDER BY count"
+    (map DB.toSql lastTwo)
 
   if null candidates
      then fmap (B.intercalate " " . tail) get
