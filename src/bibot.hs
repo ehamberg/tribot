@@ -88,7 +88,10 @@ randSentence db = do
      else do end <- liftIO $ areEndWords db lastTwo
              hasN <-liftIO $  hasNext db lastTwo
 
-             if not hasN
+             -- if there is no next word, stop. also, if this is an end word,
+             -- stop with a ~20% possibility even if there are more words
+             stop <- liftM (==1) $ liftIO $ getStdRandom (randomR (1,5::Int))
+             if not hasN || (stop && end)
                 then fmap (B.intercalate " " . tail) get
                 else do next <- liftIO $ pick (map conv candidates)
                         modify (++[next])
