@@ -12,8 +12,11 @@ import Data.List (find)
 import Data.Char (isSpace)
 import Data.String hiding (fromString)
 
+botIrcName :: String
 botIrcName     = "tribot"
+botIrcServer :: String
 botIrcServer   = "ipv6.chat.freenode.net"
+botIrcChannels :: [String]
 botIrcChannels = ["#tribot"]
 
 -- this function takes the message and the nick that sent it and returns true
