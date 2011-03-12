@@ -16,8 +16,8 @@ botIrcName     = "bibot"
 botIrcServer   = "ipv6.chat.freenode.net"
 botIrcChannels = ["#bibot"]
 
--- this function takes the message and the nick that sent it and returns true if
--- the message should be ignored
+-- this function takes the message and the nick that sent it and returns true
+-- if the message should be ignored
 ignore :: B.ByteString -> B.ByteString -> Bool
 ignore msg nick = any (==True)
                 [ "http://" `B.isInfixOf` msg   -- ignore urls
@@ -67,7 +67,8 @@ getStartWord db = do
   pick (map conv candidates)
 
 
--- makes a random sentence by finding a random start word and calling nextWords
+-- makes a random sentence by finding a random start word and then finding
+-- random words to follow the sentence as it's built
 randSentence :: DB.Connection -> StateT [B.ByteString] IO B.ByteString
 randSentence db = do
   current <- get
@@ -76,17 +77,15 @@ randSentence db = do
   -- if empty, find a start word
   when (null current) $ liftIO (getStartWord db) >>= \s -> put ["<s>",s]
 
-  current' <- get -- FIXME
-  let lastTwo = drop (n-2) current'
-
-  liftIO $ print lastTwo
+  -- get the last two words of the sentence under construction
+  lastTwo <- fmap (drop (n-2)) get
 
   candidates <- liftIO $ DB.quickQuery' db
-    "SELECT w3,count FROM trigram WHERE w1=? AND w2=? AND w3<>'<e>' ORDER BY count"
+    "SELECT w3,count FROM trigram WHERE w1=? AND w2=? AND w3<>'<e>'"
     (map DB.toSql lastTwo)
 
   if null candidates
-     then fmap (B.intercalate " " . tail) get
+     then returnCurrent
      else do end <- liftIO $ areEndWords db lastTwo
              hasN <-liftIO $  hasNext db lastTwo
 
@@ -94,17 +93,19 @@ randSentence db = do
              -- stop with a ~20% possibility even if there are more words
              stop <- liftM (==1) $ liftIO $ getStdRandom (randomR (1,5::Int))
              if not hasN || (stop && end)
-                then fmap (B.intercalate " " . tail) get
+                then returnCurrent
                 else do next <- liftIO $ pick (map conv candidates)
                         modify (++[next])
                         randSentence db
+    where returnCurrent = fmap (B.intercalate " " . tail) get
 
 -- convert database rows to (bytestring, int) tuples
 conv :: [DB.SqlValue] -> (B.ByteString, Int)
 conv ~[a,b] = (DB.fromSql a::B.ByteString, DB.fromSql b::Int)
 
--- stores a sentence in the given database. the trigrams are put in the “trigram”
--- table and the first and last word in “startword“ and “endword”, respectively.
+-- stores a sentence in the given database. the trigrams are put in the
+-- “trigram” table and the first and last word in “startword“ and “endword”,
+-- respectively.
 storeSentence :: DB.Connection -> B.ByteString -> IO ()
 storeSentence db s = do
   mapM_ (\[w1,w2,w3] -> addTrigram db w1 w2 w3) $ trigrams tokens
@@ -114,10 +115,10 @@ storeSentence db s = do
 -- adds a trigram to the database
 addTrigram :: DB.Connection -> B.ByteString -> B.ByteString -> B.ByteString -> IO ()
 addTrigram db w1 w2 w3 = do
-  DB.run db "INSERT OR IGNORE INTO trigram VALUES (?, ?, ?, 0)" words'
-  DB.run db "UPDATE trigram set count = count+1 where w1=? AND w2=? AND w3=?" words'
+  DB.run db "INSERT OR IGNORE INTO trigram VALUES (?, ?, ?, 0)" ws'
+  DB.run db "UPDATE trigram set count=count+1 where w1=? AND w2=? AND w3=?" ws'
   DB.commit db
-    where words' = map (DB.toSql . toString) [w1, w2, w3]
+    where ws' = map (DB.toSql . toString) [w1, w2, w3]
 
 onMessage :: DB.Connection -> EventFunc
 onMessage db s m
