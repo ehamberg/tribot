@@ -12,9 +12,9 @@ import Data.List (find)
 import Data.Char (isSpace)
 import Data.String hiding (fromString)
 
-botIrcName     = "bibot"
+botIrcName     = "tribot"
 botIrcServer   = "ipv6.chat.freenode.net"
-botIrcChannels = ["#bibot"]
+botIrcChannels = ["#tribot"]
 
 -- this function takes the message and the nick that sent it and returns true
 -- if the message should be ignored
