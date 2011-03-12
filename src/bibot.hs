@@ -29,7 +29,7 @@ ignore msg nick = any (==True)
 
 trigrams :: (IsString a) => [a] -> [[a]]
 trigrams [_] = []
-trigrams xs = trigrams' (["<s>"] ++ xs ++ ["<e>"])
+trigrams ws = trigrams' (["<s>"] ++ ws ++ ["<e>"])
   where trigrams' xs
           | length xs < 3 = []
           | otherwise     = take 3 xs : trigrams' (tail xs)
@@ -37,25 +37,25 @@ trigrams xs = trigrams' (["<s>"] ++ xs ++ ["<e>"])
 -- returns true if the given two words have been observed at the end of an
 -- utterance
 areEndWords :: DB.Connection -> [B.ByteString] -> IO Bool
-areEndWords db words = do
+areEndWords db ws = do
   n <- liftM length $ DB.quickQuery' db
                      "SELECT * FROM trigram WHERE w1=? AND w2=? AND w3='<e>'"
-                     (map DB.toSql words)
+                     (map DB.toSql ws)
   return (n/=0)
 
 -- returns true if the given two words have a next word in our trigram model
 hasNext :: DB.Connection -> [B.ByteString] -> IO Bool
-hasNext db words = do
+hasNext db ws = do
   n <- liftM length $ DB.quickQuery' db
                      "SELECT * FROM trigram WHERE w1=? AND w2=? AND w3<>'<e>'"
-                     (map DB.toSql words)
+                     (map DB.toSql ws)
   return (n/=0)
 
 pick :: [(B.ByteString, Int)] -> IO B.ByteString
-pick words = do
-  let freqSum = sum $ map snd words
+pick ws = do
+  let freqSum = sum $ map snd ws
   rand <- getStdRandom (randomR (1,freqSum))
-  return $ pickElem words rand
+  return $ pickElem ws rand
 
 getStartWord :: DB.Connection -> IO B.ByteString
 getStartWord db = do
