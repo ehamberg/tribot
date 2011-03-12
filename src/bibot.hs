@@ -56,6 +56,8 @@ pick ws = do
   let freqSum = sum $ map snd ws
   rand <- getStdRandom (randomR (1,freqSum))
   return $ pickElem ws rand
+    where pickElem ~((a,b):r) n = if b >= n then a else pickElem r (n-b)
+
 
 getStartWord :: DB.Connection -> IO B.ByteString
 getStartWord db = do
@@ -99,12 +101,7 @@ randSentence db = do
 
 -- convert database rows to (bytestring, int) tuples
 conv :: [DB.SqlValue] -> (B.ByteString, Int)
-conv [a,b] = (DB.fromSql a::B.ByteString, DB.fromSql b::Int)
-
--- pick an element from the list of (elem, count) tuples. will return the
--- element for which the accumulated count is less than or equal to n
-pickElem :: (Ord b, Num b) => [(a, b)] -> b -> a
-pickElem ((a,b):r) n = if b >= n then a else pickElem r (n-b)
+conv ~[a,b] = (DB.fromSql a::B.ByteString, DB.fromSql b::Int)
 
 -- stores a sentence in the given database. the trigrams are put in the “trigram”
 -- table and the first and last word in “startword“ and “endword”, respectively.
