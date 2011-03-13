@@ -1,4 +1,4 @@
-name:                  bibot
+name:                  tribot
 category:              Network
 build-type:            Simple
 version:               0.1
@@ -13,9 +13,9 @@ stability:             experimental
 tested-with:           GHC==7.0.1
 cabal-version:         >=1.6
 
-Executable bibot
+Executable tribot
     hs-source-dirs:    src
-    main-is:           bibot.hs
+    main-is:           tribot.hs
     build-depends:     base >=4 && < 5, simpleirc >= 0.2 && < 0.3,
                        bytestring >= 0.9 && < 1.0, HDBC >= 2.2 && < 2.3,
                        HDBC-sqlite3 >= 2.3 && < 2.4, random >= 1.0 && < 1.1,
@@ -24,4 +24,4 @@ Executable bibot
 
 source-repository head
   type:     git
-  location: git://github.com/ehamberg/bibot.git
+  location: git://github.com/ehamberg/tribot.git
