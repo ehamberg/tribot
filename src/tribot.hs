@@ -154,9 +154,9 @@ conf db = defaultConfig
          { cAddr        = botIrcServer        -- Address
          , cNick        = botIrcName          -- Nickname
          , cChannels    = botIrcChannels      -- Channels to join
-         , cUsername    = "bibot"
-         , cRealname    = "bibot"
-         , cCTCPVersion = "bibot"
+         , cUsername    = "tribot"
+         , cRealname    = "tribot"
+         , cCTCPVersion = "tribot"
          , cEvents      = [Privmsg (onMessage db)]
          }
 
