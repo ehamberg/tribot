@@ -92,9 +92,11 @@ randSentence db = do
      else do end <- liftIO $ areEndWords db lastTwo
              hasN <-liftIO $  hasNext db lastTwo
 
-             -- if there is no next word, stop. also, if this is an end word,
-             -- stop with a ~20% possibility even if there are more words
-             stop <- liftM (==1) $ liftIO $ getStdRandom (randomR (1,5::Int))
+             -- if there is no next word: stop. also, if this is an end word,
+             -- stop with a probability that is equal to the sentence's length
+             -- (in per cent) even if there are more words
+             len <- liftM length get
+             stop <- liftM (<=len) $ liftIO $ getStdRandom (randomR (1,100))
              if not hasN || (stop && end)
                 then returnCurrent
                 else do next <- liftIO $ pick (map conv candidates)
