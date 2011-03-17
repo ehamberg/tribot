@@ -131,9 +131,17 @@ onMessage db s m
   | ignore msg from = return ()
   -- ignore private queries
   | chan == nick = sendMsg s from $ fromString "♫ Lalala. I'm ignoring you. ♬"
-  -- if the bot’s nick is mentioned, generate a sentence
-  | nick `B.isInfixOf` msg = evalStateT (randSentence db) [] >>= sendMsg s chan
-  -- if not, store the sentence
+  -- if the bot’s nick is mentioned, store what was said and generate and send
+  -- a sentence to the channel
+  | nick `B.isInfixOf` msg = do
+      sentence <- evalStateT (randSentence db) []
+      sendMsg s chan sentence
+
+      -- replace the bot's nick with “<n>” and store the sentence
+      let (h,t) = B.breakSubstring nick msg
+      let msg' = h `B.append` "<n>" `B.append` B.drop (B.length nick) t
+      storeSentence db msg'
+  -- store the sentence
   | otherwise = storeSentence db msg
     where chan = fromJust $ mChan m
           msg  = mMsg m
