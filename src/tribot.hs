@@ -113,9 +113,15 @@ conv ~[a,b] = (DB.fromSql a::B.ByteString, DB.fromSql b::Int)
 -- respectively.
 storeSentence :: DB.Connection -> B.ByteString -> IO ()
 storeSentence db s = do
-  mapM_ (\[w1,w2,w3] -> addTrigram db w1 w2 w3) $ trigrams tokens
+  -- split into tokens
+  let tokens = filter (`notElem` ["", "<s>", "<e>"]) $ B.splitWith isSpace s
+  -- if first token ends with ‘:’, assume it's a nick and replace it with “<n>:”
+  let tokens' = if (B.last . head) tokens == ':'
+                 then "<n>:":tail tokens
+                 else tokens
+  -- store trigrams
+  mapM_ (\[w1,w2,w3] -> addTrigram db w1 w2 w3) $ trigrams tokens'
   DB.commit db
-    where tokens = filter (`notElem` ["", "<s>", "<e>"]) $ B.splitWith isSpace s
 
 -- adds a trigram to the database
 addTrigram :: DB.Connection -> B.ByteString -> B.ByteString -> B.ByteString -> IO ()
