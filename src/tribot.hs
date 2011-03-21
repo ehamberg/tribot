@@ -27,6 +27,7 @@ ignore :: B.ByteString -> B.ByteString -> Bool
 ignore msg nick = any (==True)
                 [ "http://" `B.isInfixOf` msg   -- ignore urls
                 , "https://" `B.isInfixOf` msg
+                , "bot" `B.isSuffixOf` nick     -- ignore bots
                 , "@" `B.isPrefixOf` msg        -- ignore lambdabot commands
                 , ">" `B.isPrefixOf` msg
                 , nick == "lambdabot"           -- ignore lambdabot’s ramblings
