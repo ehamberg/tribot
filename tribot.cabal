@@ -1,7 +1,7 @@
 name:                  tribot
 category:              Network
 build-type:            Simple
-version:               0.1
+version:               0.2
 synopsis:              Stupid trigram-powered, nonsense-spewing irc bot
 description:           lol
 license:               BSD3
