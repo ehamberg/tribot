@@ -11,6 +11,8 @@ import Control.Monad.State
 import Data.List (find)
 import Data.Char (isSpace)
 import Data.String hiding (fromString)
+import Data.ByteString.Search
+import Data.ByteString.Lazy (toChunks)
 
 botIrcName :: String
 botIrcName     = "tribot"
@@ -131,6 +133,10 @@ addTrigram db w1 w2 w3 = do
   DB.commit db
     where ws' = map (DB.toSql . toString) [w1, w2, w3]
 
+-- replace str with repl in given string
+replace' :: B.ByteString -> B.ByteString -> B.ByteString -> B.ByteString
+replace' str repl string = (B.concat . toChunks) $ replace str repl string
+
 onMessage :: DB.Connection -> EventFunc
 onMessage db s m
   -- if message should be ignored, do nothing
@@ -140,13 +146,12 @@ onMessage db s m
   -- if the bot’s nick is mentioned, store what was said and generate and send
   -- a sentence to the channel
   | nick `B.isInfixOf` msg = do
-      sentence <- evalStateT (randSentence db) []
+      sentence <- liftM (replace' from "<n>") $ evalStateT (randSentence db) []
       sendMsg s chan sentence
 
-      -- replace the bot's nick with “<n>” and store the sentence
-      let (h,t) = B.breakSubstring nick msg
-      let msg' = h `B.append` "<n>" `B.append` B.drop (B.length nick) t
-      storeSentence db msg'
+      -- replace the bot's nick with “<n>” and store the sentenc that triggered
+      -- the response
+      storeSentence db (replace' nick "<n>" msg)
   -- store the sentence
   | otherwise = storeSentence db msg
     where chan = fromJust $ mChan m
