@@ -119,7 +119,7 @@ storeSentence db s = do
   -- split into tokens
   let tokens = filter (`notElem` ["", "<s>", "<e>"]) $ B.splitWith isSpace s
   -- if first token ends with ‘:’, assume it's a nick and replace it with “<n>:”
-  let tokens' = if (B.last . head) tokens == ':'
+  let tokens' = if (not . null) tokens && (B.last . head) tokens == ':'
                  then "<n>:":tail tokens
                  else tokens
   -- store trigrams
