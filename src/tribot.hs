@@ -30,7 +30,7 @@ ignore msg nick = any (==True)
                 , "bot" `B.isSuffixOf` nick     -- ignore bots
                 , "@" `B.isPrefixOf` msg        -- ignore lambdabot commands
                 , ">" `B.isPrefixOf` msg
-                , nick == "lambdabot"           -- ignore lambdabot’s ramblings
+                , "!" `B.isPrefixOf` msg
                 ]
 
 trigrams :: (IsString a) => [a] -> [[a]]
