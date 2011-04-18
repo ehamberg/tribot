@@ -3,7 +3,6 @@
 import Network.SimpleIRC
 import Data.Maybe
 import qualified Data.ByteString.Char8 as B
-import Data.ByteString.UTF8 (fromString)
 import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
 import Control.Monad.State
@@ -29,7 +28,7 @@ onMessage nick db s m
   -- if message should be ignored, do nothing
   | ignore msg from = return ()
   -- ignore private queries
-  | chan == nick = sendMsg s from $ fromString "♫ Lalala. I'm ignoring you. ♬"
+  | chan == nick = sendMsg s from "Lalala. I'm ignoring you."
   -- if the bot’s nick is mentioned, store what was said and generate and send
   -- a sentence to the channel
   | nick `B.isInfixOf` msg = do
