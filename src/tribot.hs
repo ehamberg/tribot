@@ -147,7 +147,7 @@ onMessage db s m
   -- if the bot’s nick is mentioned, store what was said and generate and send
   -- a sentence to the channel
   | nick `B.isInfixOf` msg = do
-      sentence <- liftM (replace' from "<n>") $ evalStateT (randSentence db) []
+      sentence <- liftM (replace' "<n>" from) $ evalStateT (randSentence db) []
       sendMsg s chan sentence
 
       -- replace the bot's nick with “<n>” and store the sentenc that triggered
