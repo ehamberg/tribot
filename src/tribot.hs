@@ -8,14 +8,9 @@ import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
 import Control.Monad.State
 import Data.List (find)
+import System.Environment (getArgs, getProgName)
+import System.Exit (exitFailure)
 import LanguageModel
-
-botIrcName :: String
-botIrcName     = "tribot2342"
-botIrcServer :: String
-botIrcServer   = "ipv6.chat.freenode.net"
-botIrcChannels :: [String]
-botIrcChannels = ["#tg23"]
 
 -- this function takes the message and the nick that sent it and returns true
 -- if the message should be ignored
@@ -29,8 +24,8 @@ ignore msg nick = any (==True)
                 , "!"        `B.isPrefixOf` msg
                 ]
 
-onMessage :: DB.Connection -> EventFunc
-onMessage db s m
+onMessage :: B.ByteString -> DB.Connection -> EventFunc
+onMessage nick db s m
   -- if message should be ignored, do nothing
   | ignore msg from = return ()
   -- ignore private queries
@@ -48,7 +43,6 @@ onMessage db s m
   | otherwise = storeSentence db msg
     where chan = fromJust $ mChan m
           msg  = mMsg m
-          nick = B.pack botIrcName
           from = fromMaybe "" (mNick m)
 
 -- set up the initial database tables
@@ -62,21 +56,27 @@ mkTable db = do
   DB.commit db
   return ()
 
-conf :: DB.Connection -> IrcConfig
-conf db = defaultConfig
-         { cAddr        = botIrcServer        -- Address
-         , cNick        = botIrcName          -- Nickname
-         , cChannels    = botIrcChannels      -- Channels to join
+conf :: String -> String -> [String] -> DB.Connection -> IrcConfig
+conf nick server channels db = defaultConfig
+         { cNick        = nick      -- Nickname
+         , cAddr        = server    -- Server Address
+         , cChannels    = channels  -- Channels to join
          , cUsername    = "tribot"
          , cRealname    = "tribot"
          , cCTCPVersion = "tribot"
-         , cEvents      = [Privmsg (onMessage db)]
+         , cEvents      = [Privmsg (onMessage (B.pack nick) db)]
          }
 
 main :: IO ()
 main = do
+  args <- getArgs
+  when (length args < 3) $ do
+    name <- getProgName
+    putStrLn ("usage: " ++ name ++ " [nick] [server] [channel1] <channel2> ...")
+    exitFailure
+  let nick:server:channels = args
   db <- DB.connectSqlite3 "trigrams.db"
   tables <- DB.getTables db
   when ((isNothing . find (=="trigram")) tables) (mkTable db)
-  connect (conf db) False True
+  connect (conf nick server channels db) False True
   DB.disconnect db
