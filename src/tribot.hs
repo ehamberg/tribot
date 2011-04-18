@@ -22,6 +22,7 @@ ignore msg nick = any (==True)
                 , ">"        `B.isPrefixOf` msg
                 , "!"        `B.isPrefixOf` msg
                 ]
+                || B.any (< ' ') msg -- ignore messages w/ control characters
 
 onMessage :: B.ByteString -> B.ByteString -> DB.Connection -> EventFunc
 onMessage nick admin db s m
