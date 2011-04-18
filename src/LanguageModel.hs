@@ -24,16 +24,16 @@ trigrams ws = trigrams' (["<s>"] ++ ws ++ ["<e>"])
 areEndWords :: DB.Connection -> [B.ByteString] -> IO Bool
 areEndWords db ws = do
   n <- liftM length $ DB.quickQuery' db
-                     "SELECT * FROM trigram WHERE w1=? AND w2=? AND w3='<e>'"
-                     (map DB.toSql ws)
+    "SELECT * FROM trigram WHERE w1 LIKE ? AND w2 LIKE ? AND w3='<e>'"
+    (map DB.toSql ws)
   return (n/=0)
 
 -- returns true if the given two words have a next word in our trigram model
 hasNext :: DB.Connection -> [B.ByteString] -> IO Bool
 hasNext db ws = do
   n <- liftM length $ DB.quickQuery' db
-                     "SELECT * FROM trigram WHERE w1=? AND w2=? AND w3<>'<e>'"
-                     (map DB.toSql ws)
+    "SELECT * FROM trigram WHERE w1 LIKE ? AND w2 LIKE ? AND w3<>'<e>'"
+    (map DB.toSql ws)
   return (n/=0)
 
 -- frequency-proportionate random selection of a ByteString
@@ -68,7 +68,7 @@ randSentence db = do
   lastTwo <- fmap (drop (n-2)) get
 
   candidates <- liftIO $ DB.quickQuery' db
-    "SELECT w3,count FROM trigram WHERE w1=? AND w2=? AND w3<>'<e>'"
+    "SELECT w3,count FROM trigram WHERE w1 LIKE ? AND w2 LIKE ? AND w3<>'<e>'"
     (map DB.toSql lastTwo)
 
   if null candidates
