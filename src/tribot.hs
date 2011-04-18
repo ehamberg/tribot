@@ -23,10 +23,18 @@ ignore msg nick = any (==True)
                 , "!"        `B.isPrefixOf` msg
                 ]
 
-onMessage :: B.ByteString -> DB.Connection -> EventFunc
-onMessage nick db s m
+onMessage :: B.ByteString -> B.ByteString -> DB.Connection -> EventFunc
+onMessage nick admin db s m
   -- if message should be ignored, do nothing
   | ignore msg from = return ()
+  --
+  | chan == nick && from == admin =
+    case (head . B.words) msg of
+         -- FIXME: dangerous use of “drop” and “!!”
+         "quit" -> disconnect s (B.drop 5 msg)
+         "say" -> let ws = (B.words msg)
+                 in sendMsg s (ws!!1) (B.intercalate " " (drop 2 ws))
+         _      -> sendMsg s from "invalid command"
   -- ignore private queries
   | chan == nick = sendMsg s from "Lalala. I'm ignoring you."
   -- if the bot’s nick is mentioned, store what was said and generate and send
@@ -55,27 +63,27 @@ mkTable db = do
   DB.commit db
   return ()
 
-conf :: String -> String -> [String] -> DB.Connection -> IrcConfig
-conf nick server channels db = defaultConfig
+conf :: String -> String -> String -> [String] -> DB.Connection -> IrcConfig
+conf nick server admin channels db = defaultConfig
          { cNick        = nick      -- Nickname
          , cAddr        = server    -- Server Address
          , cChannels    = channels  -- Channels to join
          , cUsername    = "tribot"
          , cRealname    = "tribot"
          , cCTCPVersion = "tribot"
-         , cEvents      = [Privmsg (onMessage (B.pack nick) db)]
+         , cEvents      = [Privmsg (onMessage (B.pack nick) (B.pack admin) db)]
          }
 
 main :: IO ()
 main = do
   args <- getArgs
-  when (length args < 3) $ do
+  when (length args < 4) $ do
     name <- getProgName
-    putStrLn ("usage: " ++ name ++ " [nick] [server] [channel1] <channel2> ...")
+    putStrLn ("usage: " ++ name ++ " [nick] [server] [admin nick] [channel1] <channel2> ...")
     exitFailure
-  let nick:server:channels = args
+  let nick:server:admin:channels = args
   db <- DB.connectSqlite3 "trigrams.db"
   tables <- DB.getTables db
   when ((isNothing . find (=="trigram")) tables) (mkTable db)
-  connect (conf nick server channels db) False True
+  connect (conf nick server admin channels db) False True
   DB.disconnect db
