@@ -27,8 +27,8 @@ ignore msg nick = any (==True)
 onMessage :: B.ByteString -> B.ByteString -> DB.Connection -> EventFunc
 onMessage nick admin db s m
   -- if message should be ignored, do nothing
-  | ignore msg from = return ()
-  --
+  | ignore msg from = putStrLn $ "IGNORED: " ++ show msg
+  -- privmsg from administrator
   | chan == nick && from == admin =
     case (head . B.words) msg of
          -- FIXME: dangerous use of “drop” and “!!”
