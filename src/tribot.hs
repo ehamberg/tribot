@@ -31,10 +31,11 @@ onMessage nick admin db s m
   -- privmsg from administrator
   | chan == nick && from == admin =
     case (head . B.words) msg of
-         -- FIXME: dangerous use of “drop” and “!!”
          "quit" -> disconnect s (B.drop 5 msg)
-         "say" -> let ws = (B.words msg)
-                 in sendMsg s (ws!!1) (B.intercalate " " (drop 2 ws))
+         "say"  -> let ws = (B.words msg)
+                   in if length ws > 2
+                        then sendMsg s (ws!!1) (B.intercalate " " (drop 2 ws))
+                        else sendMsg s from "invalid command"
          _      -> sendMsg s from "invalid command"
   -- ignore private queries
   | chan == nick = sendMsg s from "Lalala. I'm ignoring you."
