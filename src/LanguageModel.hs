@@ -92,14 +92,13 @@ randSentence db = do
 conv :: [DB.SqlValue] -> (B.ByteString, Int)
 conv ~[a,b] = (DB.fromSql a::B.ByteString, DB.fromSql b::Int)
 
--- stores a sentence in the given database. the trigrams are put in the
--- “trigram” table and the first and last word in “startword“ and “endword”,
--- respectively.
+-- stores a sentence in the given database. the sentence is split into tokens
+-- and the trigrams are put in the “trigram” table.
 storeSentence :: DB.Connection -> B.ByteString -> IO ()
 storeSentence db s = do
   -- split into tokens
   let tokens = filter (`notElem` ["", "<s>", "<e>"]) $ B.splitWith isSpace s
-  -- if first token ends with ‘:’, assume it's a nick and replace it with “<n>:”
+  -- if first token ends with ‘:’, assume it is a nick and replace it with “<n>:”
   let tokens' = if (not . null) tokens && (B.last . head) tokens == ':'
                  then "<n>:":tail tokens
                  else tokens
@@ -107,7 +106,7 @@ storeSentence db s = do
   mapM_ (\[w1,w2,w3] -> addTrigram db w1 w2 w3) $ trigrams tokens'
   DB.commit db
 
--- adds a trigram to the database
+-- add a trigram to the given database
 addTrigram :: DB.Connection -> B.ByteString -> B.ByteString -> B.ByteString -> IO ()
 addTrigram db w1 w2 w3 = do
   DB.run db "INSERT OR IGNORE INTO trigram VALUES (?, ?, ?, 0)" ws'
