@@ -17,7 +17,7 @@ Executable tribot
     hs-source-dirs:    src
     main-is:           tribot.hs
     build-depends:     base >=4 && < 5, simpleirc >= 0.2 && < 0.3,
-                       bytestring >= 0.9 && < 1.0, HDBC >= 2.2 && < 2.3,
+                       bytestring >= 0.9 && < 1.0, HDBC >= 2.2 && < 2.4,
                        HDBC-sqlite3 >= 2.3 && < 2.4, random >= 1.0 && < 1.1,
                        utf8-string >= 0.3 && < 0.4, mtl >= 2.0 && < 2.1,
                        stringsearch >= 0.3 && < 0.4
