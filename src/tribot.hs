@@ -68,10 +68,8 @@ mkTable db = do
   return ()
 
 conf :: String -> String -> String -> [String] -> DB.Connection -> IrcConfig
-conf nick server admin channels db = defaultConfig
-         { cNick        = nick      -- Nickname
-         , cAddr        = server    -- Server Address
-         , cChannels    = channels  -- Channels to join
+conf nick server admin channels db = (mkDefaultConfig server nick)
+         { cChannels    = channels  -- Channels to join
          , cUsername    = "tribot"
          , cRealname    = "tribot"
          , cCTCPVersion = "tribot"
