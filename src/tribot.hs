@@ -57,10 +57,12 @@ onMessage nick admin db s m
 -- set up the initial database tables
 mkTable :: DB.Connection -> IO ()
 mkTable db = do
-  let q1 = "CREATE TABLE trigram(w1 TEXT, w2 TEXT, w3 TEXT, count INTEGER, "
-         ++ "PRIMARY KEY (w1,w2,w3))"
+  let q1 = "CREATE TABLE trigram(w1 TEXT COLLATE NOCASE, w2 TEXT COLLATE NOCASE,"
+        ++ " w3 TEXT COLLATE NOCASE, count INTEGER, PRIMARY KEY (w1,w2,w3))"
+  let q2 = "CREATE INDEX w1_w2_idx ON trigram (w1, w2 COLLATE NOCASE)"
   putStrLn "Creating database table \"trigram\"..."
   DB.run db q1 []
+  DB.run db q2 []
   DB.run db "INSERT INTO trigram VALUES('<s>','hi!','<e>', 1)" []
   DB.commit db
   return ()
