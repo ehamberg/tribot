@@ -32,7 +32,7 @@ onMessage nick admin db s m
   | chan == nick && from == admin =
     case (head . B.words) msg of
          "quit" -> disconnect s (B.drop 5 msg)
-         "say"  -> let ws = (B.words msg)
+         "say"  -> let ws = B.words msg
                    in if length ws > 2
                         then sendMsg s (ws!!1) (B.intercalate " " (drop 2 ws))
                         else sendMsg s from "invalid command"
