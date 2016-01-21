@@ -14,13 +14,13 @@ import LanguageModel
 -- this function takes the message and the nick that sent it and returns true
 -- if the message should be ignored
 ignore :: B.ByteString -> B.ByteString -> Bool
-ignore msg nick = any (==True)
-                [ "http://"  `B.isInfixOf`  msg  -- ignore urls
-                , "https://" `B.isInfixOf`  msg
+ignore msg nick = or
+                [ "://"      `B.isInfixOf`  msg  -- ignore urls
                 , "bot"      `B.isSuffixOf` nick -- ignore bots
+                , "mlvn"     `B.isPrefixOf` nick -- ignore mlvn
                 , "@"        `B.isPrefixOf` msg  -- ignore lambdabot commands
                 , ">"        `B.isPrefixOf` msg
-                , "!"        `B.isPrefixOf` msg
+                , "!"        `B.isPrefixOf` msg && msg /= "!hk"
                 ]
                 || B.any (< ' ') msg -- ignore messages w/ control characters
 
