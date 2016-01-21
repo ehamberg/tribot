@@ -5,6 +5,7 @@ import Data.Maybe
 import qualified Data.ByteString.Char8 as B
 import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
+import Control.Exception (bracket)
 import Control.Monad.State
 import Data.List (find)
 import System.Environment (getArgs, getProgName)
@@ -84,8 +85,16 @@ main = do
     putStrLn ("usage: " ++ name ++ " [nick] [server] [admin nick] [channel1] <channel2> ...")
     exitFailure
   let nick:server:admin:channels = args
-  db <- DB.connectSqlite3 "trigrams.db"
-  tables <- DB.getTables db
-  when ((isNothing . find (=="trigram")) tables) (mkTable db)
-  connect (conf nick server admin channels db) False True
-  DB.disconnect db
+
+  bracket
+    (DB.connectSqlite3 "trigrams.db")
+    DB.disconnect
+    (\db -> do
+      tables <- DB.getTables db
+
+      -- create trigram table if it doesn't exist
+      when ((isNothing . find (=="trigram")) tables) (mkTable db)
+
+      _ <- connect (conf nick server admin channels db) False True
+      return ()
+    )
