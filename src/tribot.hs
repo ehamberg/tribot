@@ -62,9 +62,9 @@ mkTable db = do
         ++ " w3 TEXT COLLATE NOCASE, count INTEGER, PRIMARY KEY (w1,w2,w3))"
   let q2 = "CREATE INDEX w1_w2_idx ON trigram (w1, w2 COLLATE NOCASE)"
   putStrLn "Creating database table \"trigram\"..."
-  DB.run db q1 []
-  DB.run db q2 []
-  DB.run db "INSERT INTO trigram VALUES('<s>','hi!','<e>', 1)" []
+  _ <- DB.run db q1 []
+  _ <- DB.run db q2 []
+  _ <- DB.run db "INSERT INTO trigram VALUES('<s>','hi!','<e>', 1)" []
   DB.commit db
   return ()
 
