@@ -9,6 +9,7 @@ import qualified Database.HDBC as DB
 import qualified Database.HDBC.Sqlite3 as DB
 import LanguageModel
 import Network.SimpleIRC
+import Network.SimpleIRC.Sasl (SaslPlainArgs(..), saslPlain)
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
 
@@ -72,24 +73,25 @@ mkTable db = do
   DB.commit db
   return ()
 
-conf :: String -> String -> String -> [String] -> DB.Connection -> IrcConfig
-conf nick server admin channels db =
+conf :: String -> String -> String -> String -> String -> [String] -> DB.Connection -> IrcConfig
+conf nick server authn authpass admin channels db =
   (mkDefaultConfig server nick)
     { cChannels = channels, -- Channels to join
       cUsername = "tribot",
       cRealname = "tribot",
       cCTCPVersion = "tribot",
-      cEvents = [Privmsg (onMessage (B.pack nick) (B.pack admin) db)]
+      cEvents = [Privmsg (onMessage (B.pack nick) (B.pack admin) db)],
+      cSasl = Just (saslPlain (SaslPlainArgs Nothing authn authpass))
     }
 
 main :: IO ()
 main = do
   args <- getArgs
-  when (length args < 4) $ do
+  when (length args < 6) $ do
     name <- getProgName
-    putStrLn ("usage: " ++ name ++ " [nick] [server] [admin nick] [channel1] <channel2> ...")
+    putStrLn ("usage: " ++ name ++ " [nick] [server] [auth name] [auth pass] [admin nick] [channel1] <channel2> ...")
     exitFailure
-  let nick : server : admin : channels = args
+  let nick : server : authn : authpass : admin : channels = args
 
   bracket
     (DB.connectSqlite3 "trigrams.db")
@@ -100,6 +102,6 @@ main = do
         -- create trigram table if it doesn't exist
         when ((isNothing . find (== "trigram")) tables) (mkTable db)
 
-        _ <- connect (conf nick server admin channels db) False True
+        _ <- connect (conf nick server authn authpass admin channels db) False True
         return ()
     )
