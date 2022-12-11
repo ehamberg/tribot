@@ -23,7 +23,7 @@ trigrams ws = trigrams' (["<s>"] ++ ws ++ ["<e>"])
 -- utterance
 areEndWords :: DB.Connection -> [B.ByteString] -> IO Bool
 areEndWords db ws = do
-  n <- liftM length $ DB.quickQuery' db
+  n <- length <$> DB.quickQuery' db
     "SELECT * FROM trigram WHERE w1 = ? AND w2 = ? AND w3='<e>' COLLATE NOCASE"
     (map DB.toSql ws)
   return (n/=0)
@@ -31,7 +31,7 @@ areEndWords db ws = do
 -- returns true if the given two words have a next word in our trigram model
 hasNext :: DB.Connection -> [B.ByteString] -> IO Bool
 hasNext db ws = do
-  n <- liftM length $ DB.quickQuery' db
+  n <- length <$> DB.quickQuery' db
     "SELECT * FROM trigram WHERE w1 = ? AND w2 = ? AND w3 <> '<e>' COLLATE NOCASE"
     (map DB.toSql ws)
   return (n/=0)
@@ -65,7 +65,7 @@ randSentence db = do
   when (null current) $ liftIO (getStartWord db) >>= \s -> put ["<s>",s]
 
   -- get the last two words of the sentence under construction
-  lastTwo <- fmap (drop (n-2)) get
+  lastTwo <- gets (drop (n - 2))
 
   candidates <- liftIO $ DB.quickQuery' db
     "SELECT w3,count FROM trigram WHERE w1 = ? AND w2 = ? AND w3 <> '<e>' COLLATE NOCASE"
@@ -79,14 +79,14 @@ randSentence db = do
              -- if there is no next word: stop. also, if this is an end word,
              -- stop with a probability that is equal to the sentence's length
              -- (in per cent) even if there are more words
-             len <- liftM length get
-             stop <- liftM (<=len) $ liftIO $ getStdRandom (randomR (1,100))
+             len <- gets length
+             stop <- fmap (<=len) $ liftIO $ getStdRandom (randomR (1,100))
              if not hasN || (stop && end)
                 then returnCurrent
                 else do next <- liftIO $ pick (map conv candidates)
                         modify (++[next])
                         randSentence db
-    where returnCurrent = fmap (B.intercalate " " . tail) get
+    where returnCurrent = gets (B.intercalate " " . tail)
 
 -- convert database rows to (bytestring, int) tuples
 conv :: [DB.SqlValue] -> (B.ByteString, Int)
