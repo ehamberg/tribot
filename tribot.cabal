@@ -1,22 +1,22 @@
-name:                  tribot
-category:              Network
-build-type:            Simple
-version:               0.3
-synopsis:              Stupid trigram-powered, nonsense-spewing irc bot
-description:           lol
-license:               BSD3
-License-file:          LICENSE
-category:              Network
-author:                Erlend Hamberg
-maintainer:            ehamberg@gmail.com
-stability:             experimental
-tested-with:           GHC==7.0.1
-cabal-version:         >=1.6
+cabal-version:      3.4
+name:               tribot
+category:           Network
+version:            0.4.0.0
+synopsis:           Stupid trigram-powered, nonsense-spewing irc bot
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Erlend Hamberg
+maintainer:         erlend@hamberg.no
+build-type:         Simple
 
-Executable tribot
-    hs-source-dirs:    src
-    main-is:           tribot.hs
+common warnings
+    ghc-options: -Wall
+
+executable tribot
+    hs-source-dirs:   app
+    main-is:          Main.hs
     other-modules:     LanguageModel
+    import:           warnings
     build-depends:     base
                      , simpleirc
                      , bytestring
@@ -27,7 +27,7 @@ Executable tribot
                      , mtl
                      , stringsearch
                      , time
-    ghc-options:       -Wall
+    default-language: Haskell2010
 
 source-repository head
   type:     git
