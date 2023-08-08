@@ -1,56 +1,68 @@
 {
   inputs = {
-    nixpkgs = { url = "github:NixOS/nixpkgs/nixpkgs-unstable"; };
-    flake-utils = { url = "github:numtide/flake-utils"; };
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-
+  outputs = { nixpkgs, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        inherit (nixpkgs.lib) optional;
-        pkgs = import nixpkgs { inherit system; };
+        config = { };
 
-        ghcWithPkgs = (pkgs.haskellPackages.ghcWithPackages (p: [
-            p.HDBC
-            p.HDBC-sqlite3
-            p.asn1-encoding
-            p.asn1-parse
-            p.asn1-types
-            p.async
-            p.base64
-            p.basement
-            p.bytestring
-            p.cereal
-            p.connection
-            p.cryptonite
-            p.hashable
-            p.hourglass
-            p.hsc2hs
-            p.memory
-            p.mtl
-            p.network
-            p.pem
-            p.random
-            p.socks
-            p.stringsearch
-            p.text-short
-            p.time
-            p.tls
-            p.utf8-string
-            p.x509
-            p.x509-store
-            p.x509-system
-            p.x509-validation
-        ]));
-        cabal-install = pkgs.cabal-install;
-      in
-        {
-          devShell = pkgs.mkShell {
-            buildInputs = [
-              ghcWithPkgs
+        overlay = pkgsNew: pkgsOld: {
+          tribot = pkgsNew.haskell.lib.justStaticExecutables
+            pkgsNew.haskellPackages.tribot;
+
+          haskellPackages = pkgsOld.haskellPackages.override (old: {
+            overrides = let
+              oldOverrides = old.overrides or (_: _: { });
+
+              manualOverrides = haskellPackagesNew: haskellPackagesOld: {
+                simpleirc = let
+                  src = builtins.fetchGit {
+                    url = "https://github.com/dom96/SimpleIrc";
+                    ref = "master";
+                    rev = "8d156a89801be2c9b6923d85e6b199c8173e445a";
+                  };
+                in pkgs.haskell.lib.dontCheck
+                (haskellPackagesOld.callCabal2nix "simpleirc" src { });
+              };
+
+              sourceOverrides =
+                pkgsNew.haskell.lib.packageSourceOverrides { tribot = ./.; };
+
+            in pkgsNew.lib.fold pkgsNew.lib.composeExtensions oldOverrides ([
+              sourceOverrides
+              manualOverrides
+            ]);
+          });
+        };
+
+        pkgs = import nixpkgs {
+          inherit config system;
+          overlays = [ overlay ];
+        };
+
+      in rec {
+        packages.default = pkgs.haskellPackages.tribot;
+
+        apps.default = {
+          type = "app";
+          program = "${pkgs.tribot}/bin/tribot";
+        };
+
+        devShells = {
+          default = pkgs.mkShell {
+            buildInputs = with pkgs; [
+              haskellPackages.haskell-language-server
+              haskellPackages.hlint
+              haskellPackages.cabal-fmt
+              haskellPackages.ormolu
               cabal-install
+              zlib
+              sqlite
             ];
           };
-        });
+        };
+      });
 }
